@@ -13,7 +13,7 @@
         </el-card>
       </el-col>
     </el-row>
-    <div id="myTimer" style="margin-left: 15px;font-weight: 550;"></div>
+    <div ref="myTimer" style="margin-left: 15px;font-weight: 550;"></div>
     <!-- 为 ECharts 准备一个具备大小（宽高）的 DOM -->
     <div id="main" style="margin-left: 5px"></div>
   </div>
@@ -22,9 +22,14 @@
 <script>
 import * as echarts from 'echarts'
 import {ElMessage} from "element-plus";
-import request from "../utils/request";
+import api from '../api';
+import { User, Document } from '@element-plus/icons-vue';
 
 export default {
+  components: {
+    User,
+    Document
+  },
   data() {
     return {
       cards: [
@@ -42,25 +47,50 @@ export default {
   mounted() {
     this.circleTimer()
 
-    request.get("/dashboard").then(res=>{
-      if(res.code == 0)
-      {
-
-        this.cards[0].data = res.data.lendRecordCount
-        this.cards[1].data = res.data.visitCount
-        this.cards[2].data = res.data.bookCount
-        this.cards[3].data = res.data.userCount
-
+    // 初始化图表实例
+    var myChart = echarts.init(document.getElementById('main'))
+    
+    // 获取所有统计数据
+    Promise.all([
+      api.dashboard.getUserCount(),
+      api.dashboard.getBookCount(),
+      api.dashboard.getBorrowCount(),
+      api.dashboard.getVisitCount(),
+      api.dashboard.getBorrowChartData()
+    ]).then(([userRes, bookRes, borrowRes, visitRes, chartRes]) => {
+      // 更新卡片数据
+      if (userRes.code === 0 || userRes.code === 200) {
+        this.cards[3].data = userRes.data || 0
       }
-      else
-      {
-        ElMessage.error(res.msg)
+      
+      if (bookRes.code === 0 || bookRes.code === 200) {
+        this.cards[2].data = bookRes.data || 0
       }
-
-
-      // 基于准备好的dom，初始化echarts实例
-      var myChart = echarts.init(document.getElementById('main'))
-    console.log(this.cards[0].data)
+      
+      if (borrowRes.code === 0 || borrowRes.code === 200) {
+        this.cards[0].data = borrowRes.data || 0
+      }
+      
+      if (visitRes.code === 0 || visitRes.code === 200) {
+        this.cards[1].data = visitRes.data || 0
+      }
+      
+      // 准备图表数据
+      let chartData = {
+        labels: this.cards.map(item => item.title),
+        values: [
+          this.cards[0].data,
+          this.cards[1].data,
+          this.cards[2].data,
+          this.cards[3].data
+        ]
+      }
+      
+      // 如果后端返回了图表数据，则使用后端数据
+      if (chartRes.code === 0 || chartRes.code === 200 && chartRes.data) {
+        chartData = chartRes.data
+      }
+      
       // 绘制图表
       myChart.setOption({
         title: {
@@ -68,9 +98,6 @@ export default {
         },
         tooltip: {
           trigger: 'axis'
-          // axisPointer: {
-          //   type: 'shadow' // 默认为直线，可选为：'line' | 'shadow'
-          // }
         },
         grid: {
           left: '3%',
@@ -80,7 +107,7 @@ export default {
         },
         xAxis: {
           type: 'category',
-          data: this.cards.map(item => item.title),
+          data: chartData.labels || this.cards.map(item => item.title),
           axisTick: {
             alignWithLabel: true
           }
@@ -91,33 +118,89 @@ export default {
         series: [
           {
             type: 'bar',
-            label: { show: true },
+            label: { 
+              show: true,
+              position: 'top'
+            },
             barWidth: '25%',
             data: [
               {
-                value: this.cards[0].data,
+                value: chartData.values ? chartData.values[0] : this.cards[0].data,
                 itemStyle: { color: '#5470c6' }
               },
               {
-                value: this.cards[1].data,
+                value: chartData.values ? chartData.values[1] : this.cards[1].data,
                 itemStyle: { color: '#91cc75' }
               },
               {
-                value: this.cards[2].data,
+                value: chartData.values ? chartData.values[2] : this.cards[2].data,
                 itemStyle: { color: '#fac858' }
               },
               {
-                value: this.cards[3].data,
+                value: chartData.values ? chartData.values[3] : this.cards[3].data,
                 itemStyle: { color: '#ee6666' }
               }
             ]
           }
         ]
       })
+    })
+      .catch(error => {
+          console.error('获取图表数据失败，使用默认数据', error)
+          // 使用默认数据
+          myChart.setOption({
+            title: {
+              text: '统计'
+            },
+            tooltip: {
+              trigger: 'axis'
+            },
+            grid: {
+              left: '3%',
+              right: '4%',
+              bottom: '3%',
+              containLabel: true
+            },
+            xAxis: {
+              type: 'category',
+              data: this.cards.map(item => item.title),
+              axisTick: {
+                alignWithLabel: true
+              }
+            },
+            yAxis: {
+              type: 'value'
+            },
+            series: [
+              {
+                type: 'bar',
+                label: { show: true },
+                barWidth: '25%',
+                data: [
+                  {
+                    value: this.cards[0].data,
+                    itemStyle: { color: '#5470c6' }
+                  },
+                  {
+                    value: this.cards[1].data,
+                    itemStyle: { color: '#91cc75' }
+                  },
+                  {
+                    value: this.cards[2].data,
+                    itemStyle: { color: '#fac858' }
+                  },
+                  {
+                    value: this.cards[3].data,
+                    itemStyle: { color: '#ee6666' }
+                  }
+                ]
+              }
+            ]
+          })
+        })
       window.addEventListener('resize', () => {
         myChart.resize()
       })
-    })
   },
   methods: {
     circleTimer() {
@@ -129,7 +212,10 @@ export default {
     getTimer() {
       var d = new Date()
       var t = d.toLocaleString()
-      document.getElementById('myTimer').innerHTML = t
+      // 使用Vue的ref安全访问DOM元素
+      if (this.$refs.myTimer) {
+        this.$refs.myTimer.innerHTML = t
+      }
     }
   }
 }

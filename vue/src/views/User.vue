@@ -4,23 +4,24 @@
 <!-- 搜索-->
     <div style="margin: 10px 0;">
       <el-form inline="true" size="small">
-        <el-form-item label="读者编号" >
-      <el-input v-model="search1" placeholder="请输入读者编号"  clearable>
+        <el-form-item label="账号(学号/工号)" >
+      <el-input v-model="queryParams.username" placeholder="请输入账号"  clearable>
         <template #prefix><el-icon class="el-input__icon"><search/></el-icon></template>
       </el-input>
           </el-form-item >
-        <el-form-item label="姓名" >
-          <el-input v-model="search2" placeholder="请输入姓名"  clearable>
+        <el-form-item label="真实姓名" >
+          <el-input v-model="queryParams.realName" placeholder="请输入真实姓名"  clearable>
             <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
           </el-input>
         </el-form-item >
-        <el-form-item label="电话号码" >
-          <el-input v-model="search3" placeholder="请输入电话号码"  clearable>
-            <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
-          </el-input>
+        <el-form-item label="用户类型" >
+          <el-select v-model="queryParams.userType" placeholder="选择用户类型" clearable>
+            <el-option label="学生" value="STUDENT"></el-option>
+            <el-option label="教师" value="TEACHER"></el-option>
+          </el-select>
         </el-form-item >
-        <el-form-item label="地址" >
-          <el-input v-model="search4" placeholder="请输入地址"  clearable>
+        <el-form-item label="院系/部门" >
+          <el-input v-model="queryParams.deptName" placeholder="请输入院系/部门"  clearable>
             <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
           </el-input>
         </el-form-item >
@@ -42,20 +43,23 @@
     </div>
 <!-- 数据字段-->
     <el-table :data="tableData" stripe border="true"  @selection-change="handleSelectionChange" >
-      <el-table-column v-if="user.role ==1 "
+      <el-table-column v-if="user.roleKey === 'SUPER'"
                        type="selection"
                        width="55">
       </el-table-column>
-      <el-table-column prop="id" label="读者编号" sortable />
-      <el-table-column prop="username" label="用户名" />
-      <el-table-column prop="nickName" label="姓名" />
-      <el-table-column prop="phone" label="电话号码" />
-      <el-table-column prop="sex" label="性别" />
-      <el-table-column prop="address" label="地址" />
+      <el-table-column prop="userId" label="用户ID" sortable />
+      <el-table-column prop="username" label="账号" />
+      <el-table-column prop="realName" label="真实姓名" />
+      <el-table-column prop="userType" label="用户类型" :formatter="formatUserType" />
+      <el-table-column prop="roleKey" label="角色" :formatter="formatRoleKey" />
+      <el-table-column prop="deptName" label="院系/部门" />
+      <el-table-column prop="phone" label="联系电话" />
+      <el-table-column prop="maxBorrowQuota" label="最大借阅额度" />
+      <el-table-column prop="status" label="状态" :formatter="formatStatus" />
       <el-table-column fixed="right" label="操作" >
         <template v-slot="scope">
           <el-button  size="mini" @click ="handleEdit(scope.row)">编辑</el-button>
-          <el-popconfirm title="确认删除?" @confirm="handleDelete(scope.row.id)">
+          <el-popconfirm title="确认删除?" @confirm="handleDelete(scope.row.userId)">
             <template #reference>
               <el-button type="danger" size="mini" >删除</el-button>
             </template>
@@ -110,19 +114,29 @@
 
 <script>
 // @ is an alias to /src
-import request from "../utils/request";
 import {ElMessage} from "element-plus";
+import api from '../api';
 
 export default {
   created(){
-    this.load()
+    // 先获取用户信息，再加载数据
     let userStr = sessionStorage.getItem("user") ||"{}"
     this.user = JSON.parse(userStr)
+    console.log('用户信息：', this.user);
+    
+    // 延迟一小段时间再加载数据，确保页面准备就绪
+    setTimeout(() => {
+      console.log('延迟加载用户数据');
+      this.load();
+    }, 100);
   },
   name: 'User',
   methods: {
     handleSelectionChange(val){
-      this.ids = val.map(v => v.id)
+      console.log('选中的行数据：', val);
+      // 使用正确的userId字段
+      this.ids = val.map(v => v.userId)
+      console.log('选中的ID列表：', this.ids);
     },
     deleteBatch(){
       if (!this.ids.length) {
@@ -130,7 +144,7 @@ export default {
         return
       }
       //  一个小优化，直接发送这个数组，而不是一个一个的提交删除
-      request.post("/user/deleteBatch",this.ids).then(res =>{
+      api.user.batchDeleteUser(this.ids).then(res =>{
         if(res.code === '0'){
           ElMessage.success("批量删除成功")
           this.load()
@@ -140,31 +154,146 @@ export default {
         }
       })
     },
-    load(){
-      request.get("user/usersearch",{
-        params:{
-          pageNum: this.currentPage,
-          pageSize: this.pageSize,
-          search1: this.search1,
-          search2: this.search2,
-          search3: this.search3,
-          search4: this.search4,
+    load() {
+      console.log('开始加载用户数据，当前页码：', this.currentPage, '每页数量：', this.pageSize);
+      console.log('原始查询参数：', this.queryParams);
+      
+      // 构建请求配置，只传递非空的查询参数
+      const params = {
+        pageNum: this.currentPage,
+        pageSize: this.pageSize
+      };
+      
+      // 只添加非空的查询条件
+      if (this.queryParams.username && this.queryParams.username.trim()) {
+        params.username = this.queryParams.username;
+      }
+      if (this.queryParams.realName && this.queryParams.realName.trim()) {
+        params.realName = this.queryParams.realName;
+      }
+      if (this.queryParams.userType && this.queryParams.userType.trim()) {
+        params.userType = this.queryParams.userType;
+      }
+      if (this.queryParams.deptName && this.queryParams.deptName.trim()) {
+        params.deptName = this.queryParams.deptName;
+      }
+      if (this.queryParams.status && this.queryParams.status.toString().trim()) {
+        params.status = this.queryParams.status;
+      }
+      
+      const requestConfig = {
+        params: params
+      };
+      
+      console.log('过滤后的请求参数：', params);
+      console.log('实际请求的URL路径(基于baseURL):', '/admin/user/page');
+      
+      // 调用分页查询所有用户信息的接口
+      api.user.getUserList(params).then(res => {
+        console.log('获取用户数据响应完整信息：', res);
+        console.log('响应状态码：', res.code);
+        console.log('响应数据类型：', typeof res.data);
+        console.log('响应数据内容：', JSON.stringify(res.data));
+        
+        // 检查响应状态码，兼容不同的状态码格式
+        if(res) {
+          // 尝试不同的状态码检查方式
+          const isSuccess = (res.code === 0 || res.code === 200 || res.code === '0' || res.code === '200');
+          console.log('请求是否成功：', isSuccess);
+          
+          if(isSuccess) {
+            // 更详细的数据格式检查
+            console.log('响应数据是否存在：', res.data !== undefined);
+            if(res.data) {
+              console.log('records字段是否存在：', res.data.records !== undefined);
+              console.log('total字段是否存在：', res.data.total !== undefined);
+              
+              // 更健壮的数据获取方式，尝试多种可能的数据结构
+              let userData = [];
+              let userTotal = 0;
+              
+              // 检查是否是标准的分页响应格式
+              if(Array.isArray(res.data.records)) {
+                userData = res.data.records;
+                userTotal = res.data.total || 0;
+                console.log('使用records字段作为数据源');
+              } 
+              // 检查是否数据直接在data字段中
+              else if(Array.isArray(res.data)) {
+                userData = res.data;
+                userTotal = res.data.length;
+                console.log('使用data字段作为数据源');
+              }
+              // 检查是否有rows或list字段（常见的分页响应格式）
+              else if(Array.isArray(res.data.rows)) {
+                userData = res.data.rows;
+                userTotal = res.data.total || 0;
+                console.log('使用rows字段作为数据源');
+              }
+              else if(Array.isArray(res.data.list)) {
+                userData = res.data.list;
+                userTotal = res.data.total || 0;
+                console.log('使用list字段作为数据源');
+              }
+              
+              this.tableData = userData;
+              this.total = userTotal;
+              console.log('成功加载用户数据，总数：', this.total, '记录数：', this.tableData.length);
+              
+              // 显示数据加载提示
+              if(this.tableData.length === 0) {
+                ElMessage.info('当前查询条件下没有找到数据');
+              } else {
+                ElMessage.success(`成功加载 ${this.tableData.length} 条用户数据`);
+              }
+            } else {
+              console.error('响应中没有data字段');
+              this.tableData = [];
+              this.total = 0;
+              ElMessage.warning('响应中没有数据');
+            }
+          } else {
+            console.error('请求失败或状态码不正确：', res.code, res.message || res.msg || '未知错误');
+            this.tableData = [];
+            this.total = 0;
+            ElMessage.error('获取用户数据失败：' + (res.message || res.msg || '未知错误'));
+          }
+        } else {
+          console.error('响应为空');
+          this.tableData = [];
+          this.total = 0;
+          ElMessage.error('获取用户数据失败：响应为空');
         }
-      }).then(res =>{
-        console.log(res)
-        this.tableData = res.data.records
-        this.total = res.data.total
-      })
+      }).catch(error => {
+        console.error('请求用户数据时发生错误：', error);
+        console.error('错误详情：', error.response || error.message);
+        this.tableData = [];
+        this.total = 0;
+        ElMessage.error('网络错误，请检查连接后重试：' + (error.message || '未知错误'));
+      });
     },
     clear(){
-      this.search1 = ""
-      this.search2 = ""
-      this.search3 = ""
+      this.queryParams = {
+        username: '',
+        realName: '',
+        userType: '',
+        deptName: '',
+        status: ''
+      }
       this.load()
+    },
+    formatUserType(row, column) {
+      return row.userType === 'STUDENT' ? '学生' : row.userType === 'TEACHER' ? '教师' : row.userType
+    },
+    formatRoleKey(row, column) {
+      return row.roleKey === 'SUPER' ? '超级管理员' : row.roleKey === 'PURCHASE' ? '采购管理员' : row.roleKey
+    },
+    formatStatus(row, column) {
+      return row.status === 1 ? '正常' : '禁用'
     },
 
     handleDelete(id){
-      request.delete("user/" + id ).then(res =>{
+      api.user.deleteUser(id).then(res =>{
         console.log(res)
         if(res.code == 0 ){
           ElMessage.success("删除成功")
@@ -182,7 +311,7 @@ export default {
     },
     save(){
       if(this.form.id){
-        request.put("/user",this.form).then(res =>{
+        api.user.updateUser(this.form).then(res =>{
           console.log(res)
           if(res.code == 0){
             ElMessage({
@@ -197,9 +326,8 @@ export default {
           this.load() //不知道为啥，更新必须要放在这里面
           this.dialogVisible = false
         })
-      }
-      else {
-        request.post("/user",this.form).then(res =>{
+      } else {
+        api.user.addUser(this.form).then(res =>{
           console.log(res)
           if(res.code == 0){
             ElMessage.success('添加成功')
@@ -223,25 +351,27 @@ export default {
       this.pageSize = pageSize
       this.load()
     },
-    handleCurrentChange(pageNum){
-      this.pageNum = pageNum
-      this.load()
+    handleCurrentChange(pageNum) {
+      this.currentPage = pageNum;
+      console.log('页码已更改为：', this.currentPage);
+      this.load();
     },
   },
   data() {
     return {
       form: {},
       dialogVisible : false,
-      search1:'',
-      search2:'',
-      search3:'',
-      search4:'',
+      queryParams: {
+        username: '',
+        realName: '',
+        userType: '',
+        deptName: '',
+        status: ''
+      },
       total:10,
       currentPage:1,
       pageSize: 10,
-      tableData: [
-
-      ],
+      tableData: [],
       user:{},
       ids:[],
     }

@@ -190,9 +190,9 @@
 
 <script>
 // @ is an alias to /src
-import request from "../utils/request";
 import {ElMessage} from "element-plus";
 import moment from "moment";
+import api from '../api';
 export default {
   created(){
     let userStr = sessionStorage.getItem("user") ||"{}"
@@ -211,7 +211,7 @@ export default {
         return
       }
       //  一个小优化，直接发送这个数组，而不是一个一个的提交删除
-      request.post("/book/deleteBatch",this.ids).then(res =>{
+      api.book.batchDeleteBook(this.ids).then(res =>{
         if(res.code === '0'){
           ElMessage.success("批量删除成功")
           this.load()
@@ -224,14 +224,12 @@ export default {
     load(){
       this.numOfOutDataBook =0;
       this.outDateBook =[];
-      request.get("/book",{
-        params:{
-          pageNum: this.currentPage,
-          pageSize: this.pageSize,
-          search1: this.search1,
-          search2: this.search2,
-          search3: this.search3,
-        }
+      api.book.getBookList({
+        pageNum: this.currentPage,
+        pageSize: this.pageSize,
+        search1: this.search1,
+        search2: this.search2,
+        search3: this.search3,
       }).then(res =>{
         console.log(res)
         this.tableData = res.data.records
@@ -239,14 +237,12 @@ export default {
       })
     //
       if(this.user.role == 2){
-        request.get("/bookwithuser",{
-          params:{
-            pageNum: "1",
-            pageSize: this.total,
-            search1: "",
-            search2: "",
-            search3: this.user.id,
-          }
+        api.lendRecord.getUserBorrowInfo({
+          pageNum: "1",
+          pageSize: this.total,
+          search1: "",
+          search2: "",
+          search3: this.user.id,
         }).then(res =>{
           console.log(res)
           this.bookData = res.data.records
@@ -278,7 +274,7 @@ export default {
     },
 
     handleDelete(id){
-      request.delete("book/" + id ).then(res =>{
+      api.book.deleteBook(id).then(res =>{
         console.log(res)
         if(res.code == 0 ){
           ElMessage.success("删除成功")
@@ -299,7 +295,7 @@ export default {
       // }
       this.form.status = "1"
       this.form.id = id
-      request.put("/book",this.form).then(res =>{
+      api.book.updateBook(this.form).then(res =>{
         console.log(res)
         if(res.code == 0){
           ElMessage({
@@ -318,7 +314,7 @@ export default {
         this.form3.status = "1"
         console.log(bn)
         this.form3.borrownum = bn
-        request.put("/LendRecord1/",this.form3).then(res =>{
+        api.lendRecord.updateLendRecord(this.form3).then(res =>{
           console.log(res)
           let form3 ={};
           form3.isbn = isbn;
@@ -328,7 +324,7 @@ export default {
           form3.lendtime = endDate;
           form3.deadtime = endDate;
           form3.prolong  = 1;
-          request.post("/bookwithuser/deleteRecord",form3).then(res =>{
+          api.lendRecord.deleteBorrowRecord(form3).then(res =>{
             console.log(res)
             this.load()
           })
@@ -372,7 +368,7 @@ export default {
       this.form.id = id
       this.form.borrownum = bn+1
       console.log(bn)
-      request.put("/book",this.form).then(res =>{
+      api.book.updateBook(this.form).then(res =>{
         console.log(res)
         if(res.code == 0){
           ElMessage({
@@ -395,7 +391,7 @@ export default {
       let startDate = moment(new Date()).format("yyyy-MM-DD HH:mm:ss");
       this.form2.lendTime = startDate
       console.log(this.user)
-      request.post("/LendRecord",this.form2).then(res =>{
+      api.lendRecord.createLendRecord(this.form2).then(res =>{
         console.log(res)
         this.load();
 
@@ -410,7 +406,7 @@ export default {
       nowDate.setDate(nowDate.getDate()+30);
       form3.deadtime = moment(nowDate).format("yyyy-MM-DD HH:mm:ss");
       form3.prolong  = 1;
-      request.post("/bookwithuser/insertNew",form3).then(res =>{
+      api.lendRecord.addBorrowRecord(form3).then(res =>{
         console.log(res)
         this.load()
       })
@@ -424,7 +420,7 @@ export default {
       //地址,但是？IP与端口？+请求参数
       // this.form?这是自动保存在form中的，虽然显示时没有使用，但是这个对象中是有它的
       if(this.form.id){
-        request.put("/book",this.form).then(res =>{
+        api.book.updateBook(this.form).then(res =>{
           console.log(res)
           if(res.code == 0){
             ElMessage({
@@ -443,7 +439,7 @@ export default {
       else {
         this.form.borrownum = 0
         this.form.status = 1
-        request.post("/book",this.form).then(res =>{
+        api.book.addBook(this.form).then(res =>{
           console.log(res)
           if(res.code == 0){
             ElMessage.success('上架书籍成功')

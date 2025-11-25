@@ -18,8 +18,8 @@
       </el-form-item>
       <el-form-item>
         <div style="display: flex">
-          <el-input  v-model="form.validCode" style="width: 45%;" placeholder="请输入验证码"></el-input>
-          <ValidCode @input="createValidCode" style="width: 50%"/>
+          <el-input  v-model="form.captchaCode" style="width: 45%;" placeholder="请输入验证码"></el-input>
+          <img :src="captchaImage" @click="getCaptcha" style="width: 50%; height: 40px; cursor: pointer;" alt="验证码" />
         </div>
       </el-form-item>
       <el-form-item >
@@ -34,17 +34,19 @@
 <script>
 import request from "../utils/request";
 import {ElMessage} from "element-plus";
-import ValidCode from "../components/Validate";
+import {User, Lock} from "@element-plus/icons-vue";
 
 export default {
   name: "Login",
-  components:{
-    ValidCode
-  },
   data() {
     return {
-      validCode: '',//通过valicode获取的验证码
-      form: {},
+      captchaImage: '',
+      captchaKey: '',
+      form: {
+        username: '',
+        password: '',
+        captchaCode: ''
+      },
       rules: {
         username: [
           {
@@ -59,44 +61,87 @@ export default {
             message: '请输入密码',
             trigger: 'blur',
           }
+        ],
+        captchaCode: [
+          {
+            required: true,
+            message: '请输入验证码',
+            trigger: 'blur',
+          }
         ]
-
       }
-
     }
   },
+  mounted() {
+    // 页面加载时获取验证码
+    this.getCaptcha();
+  },
   methods: {
-    createValidCode(data){
-      this.validCode = data
+    // 获取图形验证码
+    getCaptcha() {
+      request.get("/admin/login/captcha").then(res => {
+        if (res.code === 0 || res.code === 200 || res.ok) {
+          this.captchaImage = res.data.image;
+          this.captchaKey = res.data.key;
+        } else {
+          ElMessage.error(res.message || "获取验证码失败");
+        }
+      }).catch(err => {
+        console.error("获取验证码错误:", err);
+        ElMessage.error("获取验证码失败");
+      });
     },
-    login(){
+    // 登录方法
+    login() {
       this.$refs['form'].validate((valid) => {
         if (valid) {
-          if (!this.form.validCode) {
-            ElMessage.error("请填写验证码")
-            return
-          }
-          if(this.form.validCode.toLowerCase() !== this.validCode.toLowerCase()) {
-            ElMessage.error("验证码错误")
-            return
-          }
+          const loginVo = {
+            username: this.form.username,
+            password: this.form.password,
+            captchaCode: this.form.captchaCode,
+            captchaKey: this.captchaKey
+          };
 
-          request.post("user/login", this.form).then(res => {
-            if (res.code == 0) {
-              ElMessage.success("登录成功")
-              sessionStorage.setItem("user",JSON.stringify(res.data))//缓存用户信息
-              this.$router.push("/dashboard")
+          request.post("/admin/login", loginVo).then(res => {
+            if (res.code === 0 || res.code === 200 || res.ok) {
+              // 存储JWT token
+              sessionStorage.setItem("token", res.data);
+              
+              // 获取用户信息
+              this.getUserInfo();
             } else {
-              ElMessage.error(res.msg)
+              ElMessage.error(res.message || "登录失败");
+              // 登录失败时刷新验证码
+              this.getCaptcha();
             }
-          })
+          }).catch(err => {
+            console.error("登录错误:", err);
+            ElMessage.error("登录失败，请重试");
+            this.getCaptcha();
+          });
         }
-      })
-
+      });
+    },
+    // 获取用户信息
+    getUserInfo() {
+      request.get("/admin/info").then(res => {
+        if (res.code === 0 || res.code === 200 || res.ok) {
+          // 存储用户信息
+          sessionStorage.setItem("user", JSON.stringify(res.data));
+          ElMessage.success("登录成功");
+          this.$router.push("/dashboard");
+        } else {
+          ElMessage.error(res.message || "获取用户信息失败");
+          sessionStorage.removeItem("token");
+        }
+      }).catch(err => {
+        console.error("获取用户信息错误:", err);
+        ElMessage.error("获取用户信息失败");
+        sessionStorage.removeItem("token");
+      });
     }
   }
 }
-
 </script>
 
 <style scoped>

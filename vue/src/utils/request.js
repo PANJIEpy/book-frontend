@@ -12,13 +12,15 @@ const request = axios.create({
 request.interceptors.request.use(config => {
     config.headers['Content-Type'] = 'application/json;charset=utf-8';
 
-    // config.headers['token'] = user.token;  // 设置请求头
-    //取出sessionStorage里面缓存的用户信息
-    let userJson = sessionStorage.getItem("user")
-    if(!userJson)
-    {
-        router.push("/login")
+    // 从sessionStorage中获取JWT token并添加到请求头
+    const token = sessionStorage.getItem("token");
+    if (token) {
+        // 同时支持Authorization和X-Custom-Token请求头，与后端保持一致
+        config.headers['Authorization'] = `Bearer ${token}`;
+        config.headers['X-Custom-Token'] = token;
     }
+    
+    // 不需要自动跳转到登录页，让调用方处理未登录情况
     return config
 }, error => {
     return Promise.reject(error)
@@ -37,14 +39,25 @@ request.interceptors.response.use(
         if (typeof res === 'string') {
             res = res ? JSON.parse(res) : res
         }
+        // 处理token过期或未授权的情况
+        if (res.code === 401 || res.code === 403) {
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            router.push('/login');
+        }
         return res;
     },
     error => {
         console.log('err' + error) // for debug
+        // 处理网络错误或服务器错误
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            router.push('/login');
+        }
         return Promise.reject(error)
     }
 )
-
 
 export default request
 
