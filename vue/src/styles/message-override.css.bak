@@ -1,0 +1,14 @@
+/* 覆盖Element Plus消息样式 */
+.el-message--success {
+  background-color: #f0f9eb !important;
+  border-color: #e1f3d8 !important;
+}
+
+.el-message--success .el-message__icon {
+  color: #67c23a !important;
+}
+
+/* 确保成功消息的文字颜色也正确 */
+.el-message--success .el-message__content {
+  color: #606266;
+}

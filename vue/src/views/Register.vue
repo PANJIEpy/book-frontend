@@ -34,7 +34,7 @@
 
 <script>
 import request from "../utils/request";
-import {ElMessage} from "element-plus";
+import messageService from '@/utils/messageService';
 export default {
   name: "Register",
   data(){
@@ -82,7 +82,7 @@ export default {
         if (valid) {
           if(this.form.password != this.form.confirm)
           {
-            ElMessage.error("两次密码输入不一致")
+            messageService.error("两次密码输入不一致")
             return
           }
           
@@ -95,15 +95,15 @@ export default {
           request.post("/admin/login/register", null, { params }).then(res=>{
             if(res.code === 200 || res.ok)
             {
-              ElMessage.success("注册成功")
+              messageService.success("注册成功")
               this.$router.push("/login")
             }
             else {
-              ElMessage.error(res.message || "注册失败")
+              messageService.error(res.message || "注册失败")
             }
           }).catch(err => {
             console.error("注册错误:", err);
-            ElMessage.error("注册失败，请重试")
+            messageService.error("注册失败，请重试")
           })
         }
       })

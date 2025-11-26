@@ -35,7 +35,7 @@
 
 <script>
 import request from "@/utils/request";
-import {ElMessage} from "element-plus";
+import messageService from "@/utils/messageService";
 
 export default {
   name: "Person",
@@ -53,12 +53,12 @@ export default {
       request.put("/user", this.form).then(res => {
         console.log(res)
         if (res.code === '0') {
-          ElMessage.success("更新成功")
+          messageService.success("更新成功")
           sessionStorage.setItem("user", JSON.stringify(this.form))
           // 触发Layout更新用户信息
           this.$emit("userInfo")
         } else {
-          ElMessage.error(res.msg)
+          messageService.error(res.msg)
         }
       })
 

@@ -64,4 +64,25 @@ const router = createRouter({
   routes
 })
 
+// 路由守卫 - 控制未登录用户的访问权限
+router.beforeEach((to, from, next) => {
+  // 不需要登录的页面
+  const noAuthPaths = ['/login', '/register'];
+  
+  // 检查是否需要认证
+  if (!noAuthPaths.includes(to.path)) {
+    // 获取token
+    const token = sessionStorage.getItem('token');
+    
+    // 如果没有token，重定向到登录页面
+    if (!token) {
+      console.log('未检测到登录状态，重定向到登录页');
+      return next('/login');
+    }
+  }
+  
+  // 允许访问
+  next();
+});
+
 export default router

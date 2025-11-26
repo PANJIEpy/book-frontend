@@ -30,9 +30,19 @@ export const addUser = (data) => {
 // 更新用户
 export const updateUser = (data) => {
   return request({
-    url: '/admin/user',
+    url: `/admin/user/${data.userId}`,
     method: 'put',
-    data
+    params: {
+      username: data.username,
+      realName: data.realName,
+      userType: data.userType,
+      roleKey: data.roleKey,
+      deptName: data.deptName,
+      phone: data.phone,
+      maxBorrowQuota: data.maxBorrowQuota,
+      status: data.status,
+      avatarUrl: data.avatarUrl
+    }
   });
 };
 

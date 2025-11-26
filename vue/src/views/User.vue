@@ -82,23 +82,36 @@
 
       <el-dialog v-model="dialogVisible" title="编辑读者信息" width="30%">
         <el-form :model="form" label-width="120px">
-          <el-form-item label="用户名">
+          <el-form-item label="账号">
             <el-input style="width: 80%" v-model="form.username"></el-input>
           </el-form-item>
-          <el-form-item label="昵称">
-            <el-input style="width: 80%" v-model="form.nickName"></el-input>
+          <el-form-item label="真实姓名">
+            <el-input style="width: 80%" v-model="form.realName"></el-input>
           </el-form-item>
-          <el-form-item label="电话号码">
+          <el-form-item label="用户类型">
+            <el-select style="width: 80%" v-model="form.userType" placeholder="选择用户类型">
+              <el-option label="学生" value="STUDENT"></el-option>
+              <el-option label="教师" value="TEACHER"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="角色">
+            <el-select style="width: 80%" v-model="form.roleKey" placeholder="选择角色" :disabled="true">
+              <el-option label="超级管理员" value="SUPER"></el-option>
+              <el-option label="采购管理员" value="PURCHASE"></el-option>
+              <el-option label="普通用户" value="USER"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="院系/部门">
+            <el-input style="width: 80%" v-model="form.deptName"></el-input>
+          </el-form-item>
+          <el-form-item label="联系电话">
             <el-input style="width: 80%" v-model="form.phone"></el-input>
           </el-form-item>
-          <el-form-item label="性别">
-            <div>
-              <el-radio v-model="form.sex" label="男">男</el-radio>
-              <el-radio v-model="form.sex" label="女">女</el-radio>
-            </div>
+          <el-form-item label="最大借阅额度">
+            <el-input-number style="width: 80%" v-model="form.maxBorrowQuota" :min="1" :max="99"></el-input-number>
           </el-form-item>
-          <el-form-item label="地址">
-            <el-input type="textarea" style="width: 80%" v-model="form.address"></el-input>
+          <el-form-item label="状态">
+            <el-switch style="width: 80%" v-model="form.status" active-value="1" inactive-value="0"></el-switch>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -114,7 +127,7 @@
 
 <script>
 // @ is an alias to /src
-import {ElMessage} from "element-plus";
+import messageService from '../utils/messageService'
 import api from '../api';
 
 export default {
@@ -140,18 +153,21 @@ export default {
     },
     deleteBatch(){
       if (!this.ids.length) {
-        ElMessage.warning("请选择数据！")
+        messageService.warning("请选择数据！")
         return
       }
       //  一个小优化，直接发送这个数组，而不是一个一个的提交删除
       api.user.batchDeleteUser(this.ids).then(res =>{
-        if(res.code === '0'){
-          ElMessage.success("批量删除成功")
+        if(res.code == 0 || res.code == '0'){
+          messageService.success("批量删除成功")
           this.load()
         }
         else {
-          ElMessage.error(res.msg)
+          messageService.error(res.msg || '批量删除失败')
         }
+      }).catch(error => {
+        console.error('批量删除失败:', error)
+        messageService.error('批量删除失败，请稍后重试')
       })
     },
     load() {
@@ -242,34 +258,34 @@ export default {
               
               // 显示数据加载提示
               if(this.tableData.length === 0) {
-                ElMessage.info('当前查询条件下没有找到数据');
+                messageService.info('当前查询条件下没有找到数据');
               } else {
-                ElMessage.success(`成功加载 ${this.tableData.length} 条用户数据`);
+                messageService.success(`成功加载 ${this.tableData.length} 条用户数据`);
               }
             } else {
               console.error('响应中没有data字段');
               this.tableData = [];
               this.total = 0;
-              ElMessage.warning('响应中没有数据');
+              messageService.warning('响应中没有数据');
             }
           } else {
             console.error('请求失败或状态码不正确：', res.code, res.message || res.msg || '未知错误');
             this.tableData = [];
             this.total = 0;
-            ElMessage.error('获取用户数据失败：' + (res.message || res.msg || '未知错误'));
+            messageService.error('获取用户数据失败：' + (res.message || res.msg || '未知错误'));
           }
         } else {
           console.error('响应为空');
           this.tableData = [];
           this.total = 0;
-          ElMessage.error('获取用户数据失败：响应为空');
+          messageService.error('获取用户数据失败：响应为空');
         }
       }).catch(error => {
         console.error('请求用户数据时发生错误：', error);
         console.error('错误详情：', error.response || error.message);
         this.tableData = [];
         this.total = 0;
-        ElMessage.error('网络错误，请检查连接后重试：' + (error.message || '未知错误'));
+        messageService.error('网络错误，请检查连接后重试：' + (error.message || '未知错误'));
       });
     },
     clear(){
@@ -296,10 +312,10 @@ export default {
       api.user.deleteUser(id).then(res =>{
         console.log(res)
         if(res.code == 0 ){
-          ElMessage.success("删除成功")
+          messageService.success("删除成功")
         }
         else
-          ElMessage.error(res.msg)
+          messageService.error(res.msg || '删除失败')
         this.load()
       })
     },
@@ -310,37 +326,41 @@ export default {
       this.form ={}
     },
     save(){
-      if(this.form.id){
+      if(this.form.userId){
         api.user.updateUser(this.form).then(res =>{
           console.log(res)
-          if(res.code == 0){
-            ElMessage({
-              message: '更新成功',
-              type: 'success',
-            })
+          if(res.code == 0 || res.code == '0'){
+            messageService.success("成功")
           }
           else {
-            ElMessage.error(res.msg)
+            messageService.error(res.msg || res.message || '更新失败')
           }
 
-          this.load() //不知道为啥，更新必须要放在这里面
+          this.load()
           this.dialogVisible = false
+        }).catch(error => {
+          console.error('更新用户失败:', error)
+          console.log('错误类型:', error.response ? error.response.status : 'Unknown')
+          messageService.error('更新失败，请稍后重试')
         })
       } else {
         api.user.addUser(this.form).then(res =>{
           console.log(res)
-          if(res.code == 0){
-            ElMessage.success('添加成功')
+          if(res.code == 0 || res.code == '0'){
+            messageService.success('添加成功');
           }
           else {
-            ElMessage.error(res.msg)
+            messageService.error(res.msg || res.message || '添加失败')
           }
           this.load()
           this.dialogVisible = false
+        }).catch(error => {
+          console.error('添加用户失败:', error)
+          messageService.error('添加失败，请稍后重试')
         })
       }
-
     },
+
 
 
     handleEdit(row){
