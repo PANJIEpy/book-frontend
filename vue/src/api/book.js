@@ -4,16 +4,24 @@ import request from '../utils/request';
 // 获取图书列表（分页）
 export const getBookList = (params) => {
   return request({
-    url: '/book',
+    url: '/admin/book/page',
     method: 'get',
     params
+  });
+};
+
+// 根据ID查询图书详情
+export const getBookById = (bookId) => {
+  return request({
+    url: `/admin/book/${bookId}`,
+    method: 'get'
   });
 };
 
 // 添加图书
 export const addBook = (data) => {
   return request({
-    url: '/book',
+    url: '/admin/book',
     method: 'post',
     data
   });
@@ -22,25 +30,25 @@ export const addBook = (data) => {
 // 更新图书
 export const updateBook = (data) => {
   return request({
-    url: '/book',
+    url: `/admin/book/${data.bookId}`,
     method: 'put',
     data
   });
 };
 
 // 删除图书
-export const deleteBook = (id) => {
+export const deleteBook = (bookId) => {
   return request({
-    url: `/book/${id}`,
+    url: `/admin/book/${bookId}`,
     method: 'delete'
   });
 };
 
 // 批量删除图书
-export const batchDeleteBook = (ids) => {
+export const batchDeleteBook = (bookIds) => {
   return request({
-    url: '/book/deleteBatch',
-    method: 'post',
-    data: ids
+    url: '/admin/book/batch',
+    method: 'delete',
+    data: bookIds
   });
 };

@@ -30,6 +30,7 @@ request.interceptors.request.use(config => {
 // 可以在接口响应后统一处理结果
 request.interceptors.response.use(
     response => {
+        console.log('原始响应:', response);
         let res = response.data;
         // 如果是返回的文件
         if (response.config.responseType === 'blob') {
@@ -39,8 +40,9 @@ request.interceptors.response.use(
         if (typeof res === 'string') {
             res = res ? JSON.parse(res) : res
         }
+        console.log('处理后响应:', res);
         // 处理token过期或未授权的情况
-        if (res.code === 401 || res.code === 403) {
+        if (res.code === 401 || res.code === 403 || res.code === '401' || res.code === '403') {
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('user');
             router.push('/login');

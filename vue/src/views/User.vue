@@ -111,7 +111,7 @@
             <el-input-number style="width: 80%" v-model="form.maxBorrowQuota" :min="1" :max="99"></el-input-number>
           </el-form-item>
           <el-form-item label="状态">
-            <el-switch style="width: 80%" v-model="form.status" active-value="1" inactive-value="0"></el-switch>
+            <el-switch style="width: 80%" v-model="form.status" :active-value="1" :inactive-value="0"></el-switch>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -127,7 +127,7 @@
 
 <script>
 // @ is an alias to /src
-import messageService from '../utils/messageService'
+import { ElMessage } from 'element-plus'
 import api from '../api';
 
 export default {
@@ -153,21 +153,21 @@ export default {
     },
     deleteBatch(){
       if (!this.ids.length) {
-        messageService.warning("请选择数据！")
+        ElMessage.warning("请选择数据！")
         return
       }
       //  一个小优化，直接发送这个数组，而不是一个一个的提交删除
       api.user.batchDeleteUser(this.ids).then(res =>{
         if(res.code == 0 || res.code == '0'){
-          messageService.success("批量删除成功")
+          ElMessage.success("批量删除成功")
           this.load()
         }
         else {
-          messageService.error(res.msg || '批量删除失败')
+          ElMessage.error(res.msg || '批量删除失败')
         }
       }).catch(error => {
         console.error('批量删除失败:', error)
-        messageService.error('批量删除失败，请稍后重试')
+        ElMessage.error('批量删除失败，请稍后重试')
       })
     },
     load() {
@@ -256,36 +256,40 @@ export default {
               this.total = userTotal;
               console.log('成功加载用户数据，总数：', this.total, '记录数：', this.tableData.length);
               
-              // 显示数据加载提示
-              if(this.tableData.length === 0) {
-                messageService.info('当前查询条件下没有找到数据');
-              } else {
-                messageService.success(`成功加载 ${this.tableData.length} 条用户数据`);
+              // 根据标志位显示数据加载提示
+              if (this.showLoadMessage) {
+                if(this.tableData.length === 0) {
+                  ElMessage.info('当前查询条件下没有找到数据');
+                } else {
+                  ElMessage.success(`成功加载 ${this.tableData.length} 条用户数据`);
+                }
               }
+              // 恢复显示标志位
+              this.showLoadMessage = true;
             } else {
               console.error('响应中没有data字段');
               this.tableData = [];
               this.total = 0;
-              messageService.warning('响应中没有数据');
+              ElMessage.warning('响应中没有数据');
             }
           } else {
             console.error('请求失败或状态码不正确：', res.code, res.message || res.msg || '未知错误');
             this.tableData = [];
             this.total = 0;
-            messageService.error('获取用户数据失败：' + (res.message || res.msg || '未知错误'));
+            ElMessage.error('获取用户数据失败：' + (res.message || res.msg || '未知错误'));
           }
         } else {
           console.error('响应为空');
           this.tableData = [];
           this.total = 0;
-          messageService.error('获取用户数据失败：响应为空');
+          ElMessage.error('获取用户数据失败：响应为空');
         }
       }).catch(error => {
         console.error('请求用户数据时发生错误：', error);
         console.error('错误详情：', error.response || error.message);
         this.tableData = [];
         this.total = 0;
-        messageService.error('网络错误，请检查连接后重试：' + (error.message || '未知错误'));
+        ElMessage.error('网络错误，请检查连接后重试：' + (error.message || '未知错误'));
       });
     },
     clear(){
@@ -312,10 +316,10 @@ export default {
       api.user.deleteUser(id).then(res =>{
         console.log(res)
         if(res.code == 0 ){
-          messageService.success("删除成功")
+          ElMessage.success("删除成功")
         }
         else
-          messageService.error(res.msg || '删除失败')
+          ElMessage.error(res.msg || '删除失败')
         this.load()
       })
     },
@@ -328,35 +332,58 @@ export default {
     save(){
       if(this.form.userId){
         api.user.updateUser(this.form).then(res =>{
-          console.log(res)
-          if(res.code == 0 || res.code == '0'){
-            messageService.success("成功")
+          console.log('完整响应:', res)
+          console.log('响应code:', res.code, '类型:', typeof res.code)
+          console.log('响应msg:', res.msg)
+          console.log('响应message:', res.message)
+          
+          // 更宽松的成功条件判断
+          const isSuccess = res && (res.code === 0 || res.code === '0' || res.code === 200 || res.code === '200' || res.success || res.msg === '成功')
+          console.log('是否成功:', isSuccess)
+          
+          if(isSuccess){
+            ElMessage.success("更新成功")
           }
           else {
-            messageService.error(res.msg || res.message || '更新失败')
+            ElMessage.error(res.msg || res.message || '更新失败')
           }
 
-          this.load()
           this.dialogVisible = false
+          // 不显示数据加载提示
+          this.showLoadMessage = false
+          // 延迟加载，避免消息冲突
+          setTimeout(() => {
+            this.load()
+          }, 500)
         }).catch(error => {
           console.error('更新用户失败:', error)
           console.log('错误类型:', error.response ? error.response.status : 'Unknown')
-          messageService.error('更新失败，请稍后重试')
+          ElMessage.error('更新失败，请稍后重试')
         })
       } else {
         api.user.addUser(this.form).then(res =>{
-          console.log(res)
-          if(res.code == 0 || res.code == '0'){
-            messageService.success('添加成功');
+          console.log('完整响应:', res)
+          console.log('响应code:', res.code, '类型:', typeof res.code)
+          
+          // 更宽松的成功条件判断
+          const isSuccess = res && (res.code === 0 || res.code === '0' || res.code === 200 || res.code === '200' || res.success)
+          
+          if(isSuccess){
+            ElMessage.success('添加成功')
           }
           else {
-            messageService.error(res.msg || res.message || '添加失败')
+            ElMessage.error(res.msg || res.message || '添加失败')
           }
-          this.load()
           this.dialogVisible = false
+          // 不显示数据加载提示
+          this.showLoadMessage = false
+          // 延迟加载，避免消息冲突
+          setTimeout(() => {
+            this.load()
+          }, 500)
         }).catch(error => {
           console.error('添加用户失败:', error)
-          messageService.error('添加失败，请稍后重试')
+          ElMessage.error('添加失败，请稍后重试')
         })
       }
     },
@@ -394,6 +421,7 @@ export default {
       tableData: [],
       user:{},
       ids:[],
+      showLoadMessage: true // 控制是否显示数据加载提示
     }
   },
 }

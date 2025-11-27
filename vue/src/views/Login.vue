@@ -127,9 +127,18 @@ export default {
       request.get("/admin/info").then(res => {
         if (res.code === 0 || res.code === 200 || res.ok) {
           // 存储用户信息
-          sessionStorage.setItem("user", JSON.stringify(res.data));
+          const userInfo = res.data;
+          sessionStorage.setItem("user", JSON.stringify(userInfo));
           ElMessage.success("登录成功");
-          this.$router.push("/dashboard");
+          
+          // 根据用户类型跳转到不同页面
+          if (userInfo.userType === 'ADMIN') {
+            // 管理员跳转到后台管理页面
+            this.$router.push("/dashboard");
+          } else {
+            // 普通用户（学生/教师）跳转到前端首页
+            this.$router.push("/front/home");
+          }
         } else {
           ElMessage.error(res.message || "获取用户信息失败");
           sessionStorage.removeItem("token");
