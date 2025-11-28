@@ -71,3 +71,110 @@ export const changeUserStatus = (data) => {
     data
   });
 };
+
+// 用户推荐图书
+export const recommendBook = (userId, data) => {
+  return request({
+    url: `/admin/user/${userId}/recommend`,
+    method: 'get',
+    params: data
+  });
+};
+
+// 查询用户推荐记录
+export const getRecommendRecords = (userId) => {
+  return request({
+    url: `/admin/user/recommend/${userId}`,
+    method: 'get'
+  });
+};
+
+// 分页查询所有推荐图书的信息
+export const getRecommendList = (params) => {
+  return request({
+    url: '/admin/user/recommend/page',
+    method: 'get',
+    params
+  });
+};
+
+// 审核通过推荐图书
+export const approveRecommend = (requestId) => {
+  return request({
+    url: '/admin/user/recommend',
+    method: 'post',
+    params: {
+      requestId
+    }
+  });
+};
+
+// 审核驳回推荐图书
+export const rejectRecommend = (requestId, remark) => {
+  return request({
+    url: '/admin/user/recommend/reject',
+    method: 'post',
+    params: {
+      requestId,
+      remark
+    }
+  });
+};
+
+// 待采购池查询
+export const getRecommendPool = () => {
+  return request({
+    url: '/admin/user/recommend/order',
+    method: 'get'
+  });
+};
+
+// 添加到采购订单
+export const addToPurchaseOrder = (requestId) => {
+  return request({
+    url: '/admin/user/recommend/order/add',
+    method: 'post',
+    params: {
+      requestId
+    }
+  });
+};
+
+// 查询采购订单
+export const getPurchaseOrders = () => {
+  return request({
+    url: '/admin/user/recommend/order/all',
+    method: 'get'
+  });
+};
+
+// 填写采购订单
+export const fillPurchaseOrder = (orderId, data) => {
+  return request({
+    url: '/admin/user/recommend/order/fill',
+    method: 'post',
+    params: {
+      orderId
+    },
+    data
+  });
+};
+
+// 生成采购订单
+export const generatePurchaseOrder = (orderId) => {
+  return request({
+    url: '/admin/user/recommend/order/generate',
+    method: 'post',
+    params: {
+      orderId
+    }
+  });
+};
+
+// 查询已处理的采购订单
+export const getProcessedPurchaseOrders = () => {
+  return request({
+    url: '/admin/user/recommend/order/processed',
+    method: 'get'
+  });
+};

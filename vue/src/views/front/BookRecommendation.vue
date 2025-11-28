@@ -9,9 +9,6 @@
         <el-form-item label="作者" required>
           <el-input v-model="form.author" placeholder="请输入作者"></el-input>
         </el-form-item>
-        <el-form-item label="出版社">
-          <el-input v-model="form.publisher" placeholder="请输入出版社"></el-input>
-        </el-form-item>
         <el-form-item label="ISBN">
           <el-input v-model="form.isbn" placeholder="请输入ISBN"></el-input>
         </el-form-item>
@@ -33,8 +30,8 @@
         <el-table-column prop="author" label="作者" width="120"></el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'PENDING' ? 'warning' : scope.row.status === 'APPROVED' ? 'success' : 'danger'">
-              {{ scope.row.status === 'PENDING' ? '待审核' : scope.row.status === 'APPROVED' ? '已通过' : '已驳回' }}
+            <el-tag :type="scope.row.status === 'PENDING' ? 'warning' : scope.row.status === 'APPROVED' ? 'success' : scope.row.status === 'PURCHASING' ? 'info' : scope.row.status === 'STORED' ? 'success' : 'danger'">
+              {{ scope.row.status === 'PENDING' ? '待审核' : scope.row.status === 'APPROVED' ? '已通过' : scope.row.status === 'PURCHASING' ? '采购中' : scope.row.status === 'STORED' ? '已入库' : '已驳回' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -60,32 +57,7 @@ export default {
         isbn: '',
         reason: ''
       },
-      recommendationList: [
-        {
-          id: 1,
-          title: 'JavaScript高级程序设计',
-          author: 'Nicholas C. Zakas',
-          status: 'PENDING',
-          createTime: '2023-10-01 10:00:00',
-          remark: ''
-        },
-        {
-          id: 2,
-          title: '深入理解计算机系统',
-          author: 'Randal E. Bryant',
-          status: 'APPROVED',
-          createTime: '2023-09-15 14:30:00',
-          remark: '推荐理由充分，同意采购'
-        },
-        {
-          id: 3,
-          title: '算法导论',
-          author: 'Thomas H. Cormen',
-          status: 'REJECTED',
-          createTime: '2023-09-01 09:15:00',
-          remark: '已有相同版本，暂不采购'
-        }
-      ]
+      recommendationList: []
     };
   },
   methods: {
@@ -96,36 +68,70 @@ export default {
         return;
       }
 
-      // 模拟API调用
-      ElMessage.success('图书推荐成功，等待审核');
-      this.reset();
-      // 实际项目中应该调用API提交推荐
-      // api.bookRecommendation.submit(this.form).then(res => {
-      //   if (res.code === 0) {
-      //     ElMessage.success('图书推荐成功，等待审核');
-      //     this.reset();
-      //     this.loadRecommendations();
-      //   } else {
-      //     ElMessage.error(res.msg || '推荐失败');
-      //   }
-      // });
+      // 调用API提交推荐
+      const userStr = sessionStorage.getItem('user') || '{}';
+      const user = JSON.parse(userStr);
+      if (!user.userId) {
+        ElMessage.warning('请先登录');
+        return;
+      }
+
+      api.user.recommendBook(user.userId, {
+        bookName: this.form.title,
+        author: this.form.author,
+        isbn: this.form.isbn,
+        reason: this.form.reason
+      }).then(res => {
+        console.log('提交推荐API响应:', res);
+        // 检查响应code，后端返回的是200，不是0
+        if (res.code == 200 || res.code == '200' || res.code == 0 || res.code == '0') {
+          ElMessage.success('图书推荐成功，等待审核');
+          this.reset();
+          this.loadRecommendations();
+        } else {
+          ElMessage.error(res.msg || res.message || '推荐失败');
+        }
+      }).catch(error => {
+        console.error('推荐图书失败:', error);
+        ElMessage.error('推荐图书失败');
+      });
     },
     reset() {
       this.form = {
         title: '',
         author: '',
-        publisher: '',
         isbn: '',
         reason: ''
       };
     },
     loadRecommendations() {
-      // 模拟加载推荐记录
-      // api.bookRecommendation.getList().then(res => {
-      //   if (res.code === 0) {
-      //     this.recommendationList = res.data;
-      //   }
-      // });
+      // 调用API获取推荐记录
+      const userStr = sessionStorage.getItem('user') || '{}';
+      const user = JSON.parse(userStr);
+      if (!user.userId) {
+        return;
+      }
+
+      // 根据后端接口文档，查询推荐记录应该使用userId作为参数
+      api.user.getRecommendRecords(user.userId).then(res => {
+        console.log('推荐记录API响应:', res);
+        // 检查响应code，后端返回的是200，不是0
+        if (res.code == 200 || res.code == '200' || res.code == 0 || res.code == '0') {
+          // 转换数据格式，适配前端显示
+          this.recommendationList = Array.isArray(res.data) ? res.data.map(item => ({
+            id: item.requestId,
+            title: item.bookName,
+            author: item.author,
+            status: item.status === 0 ? 'PENDING' : item.status === 1 ? 'APPROVED' : item.status === 2 ? 'PURCHASING' : item.status === 3 ? 'STORED' : 'REJECTED',
+            createTime: item.createdAt,
+            remark: item.auditRemark
+          })) : [];
+          console.log('处理后的推荐记录:', this.recommendationList);
+        }
+      }).catch(error => {
+        console.error('获取推荐记录失败:', error);
+        ElMessage.error('获取推荐记录失败');
+      });
     }
   },
   created() {
